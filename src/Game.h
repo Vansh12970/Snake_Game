@@ -1,94 +1,55 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include <SFML/Graphics.hpp>
 #include "Snake.h"
 #include "Food.h"
-#include "Graph.h"
 #include "ScoreManager.h"
-#include <SFML/Graphics.hpp>
-#include <SFML/Audio.hpp>
-#include <vector>
-#include <chrono>
+#include "Graph.h"
 
-enum GameState {
-    MENU,
-    PLAYING,
-    PAUSED,
-    GAME_OVER,
-    INSTRUCTIONS
-};
+enum GameState { MENU, PLAYING, GAME_OVER, PAUSED, HIGH_SCORES };
 
 class Game {
 private:
-    // SFML Components
-    sf::RenderWindow* window;
+    sf::RenderWindow window;
+    Snake snake;
+    Food food;
+    ScoreManager scoreManager;
+    Graph gameGraph;
+    GameState state;
     sf::Font font;
-    sf::Font titleFont;
-    sf::Texture backgroundTexture;
-    sf::Sprite backgroundSprite;
+    sf::Clock gameClock;
+    sf::Time lastUpdate;
     
-    // Audio
-    sf::SoundBuffer eatBuffer;
-    sf::SoundBuffer gameOverBuffer;
-    sf::Sound eatSound;
-    sf::Sound gameOverSound;
-    
-    // Game Objects
-    Snake* snake;
-    Food* food;
-    Graph* graph;
-    ScoreManager* scoreManager;
-    
-    // Game Properties
-    int boardWidth, boardHeight;
-    int score;
-    int level;
-    bool gameOver;
-    GameState gameState;
-    
-    // Timing
-    std::chrono::steady_clock::time_point lastUpdate;
-    int gameSpeed;
-    
-    // Graphics Properties
+    static const int GRID_WIDTH = 30;
+    static const int GRID_HEIGHT = 20;
     static const int CELL_SIZE = 25;
-    static const int BOARD_OFFSET_X = 50;
-    static const int BOARD_OFFSET_Y = 100;
+    static const int WINDOW_WIDTH = GRID_WIDTH * CELL_SIZE + 200; // Extra space for UI
+    static const int WINDOW_HEIGHT = GRID_HEIGHT * CELL_SIZE + 100;
     
-    // Colors
-    sf::Color backgroundColor;
-    sf::Color wallColor;
-    sf::Color snakeHeadColor;
-    sf::Color snakeBodyColor;
-    sf::Color foodColor;
-    sf::Color textColor;
+    float gameSpeed;
+    bool gameRunning;
 
 public:
-    Game(int width = 30, int height = 20);
-    ~Game();
-    
-    void initialize();
+    Game();
     void run();
+    
+private:
+    void handleEvents();
     void update();
     void render();
-    void handleInput();
-    void checkCollisions();
-    void nextLevel();
-    
-    // UI Rendering Functions
     void renderMenu();
     void renderGame();
-    void renderPauseMenu();
     void renderGameOver();
-    void renderInstructions();
+    void renderHighScores();
     void renderUI();
-    
-    // Utility Functions
-    void setupColors();
-    void loadAssets();
-    sf::Vector2f getCellPosition(int x, int y);
-    void drawGradientBackground();
-    void drawGlowEffect(sf::Vector2f position, sf::Color color);
+    void startNewGame();
+    void pauseGame();
+    void resumeGame();
+    void nextLevel();
+    bool loadFont();
+    void renderText(const std::string& text, float x, float y, int size = 24, 
+                   sf::Color color = sf::Color::White);
 };
 
 #endif

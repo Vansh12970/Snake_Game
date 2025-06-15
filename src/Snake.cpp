@@ -1,85 +1,101 @@
 #include "Snake.h"
-#include <iostream>
 
-Snake::Snake(Position startPos) : direction(RIGHT), length(1) {
-    head = new SnakeNode(startPos);
-    tail = head;
-}
-
-Snake::~Snake() {
-    while (head) {
-        SnakeNode* temp = head;
-        head = head->next;
-        delete temp;
-    }
+Snake::Snake(int startX, int startY) : direction(RIGHT), nextDirection(RIGHT), growing(false) {
+    body.push_back(SnakeSegment(startX, startY));
+    body.push_back(SnakeSegment(startX - 1, startY));
+    body.push_back(SnakeSegment(startX - 2, startY));
 }
 
 void Snake::move() {
-    Position newHeadPos = head->pos;
+    direction = nextDirection;
+    
+    SnakeSegment head = body.front();
+    SnakeSegment newHead = head;
     
     switch (direction) {
-        case UP: newHeadPos.y--; break;
-        case DOWN: newHeadPos.y++; break;
-        case LEFT: newHeadPos.x--; break;
-        case RIGHT: newHeadPos.x++; break;
+        case UP: newHead.y--; break;
+        case DOWN: newHead.y++; break;
+        case LEFT: newHead.x--; break;
+        case RIGHT: newHead.x++; break;
     }
     
-    // Add new head
-    SnakeNode* newHead = new SnakeNode(newHeadPos);
-    newHead->next = head;
-    head = newHead;
+    body.push_front(newHead);
     
-    // Remove tail if not growing
-    if (static_cast<size_t>(length) == getBodyPositions().size()) {
-        SnakeNode* current = head;
-        while (current->next != tail) {
-            current = current->next;
-        }
-        delete tail;
-        tail = current;
-        tail->next = nullptr;
+    if (!growing) {
+        body.pop_back();
+    } else {
+        growing = false;
     }
 }
 
 void Snake::grow() {
-    length++;
+    growing = true;
 }
 
-void Snake::changeDirection(Direction newDir) {
-    // Prevent reverse direction
-    if ((direction == UP && newDir == DOWN) ||
-        (direction == DOWN && newDir == UP) ||
-        (direction == LEFT && newDir == RIGHT) ||
-        (direction == RIGHT && newDir == LEFT)) {
-        return;
+void Snake::setDirection(Direction dir) {
+    // Prevent immediate reversal
+    if ((direction == UP && dir != DOWN) ||
+        (direction == DOWN && dir != UP) ||
+        (direction == LEFT && dir != RIGHT) ||
+        (direction == RIGHT && dir != LEFT)) {
+        nextDirection = dir;
     }
-    direction = newDir;
 }
 
-bool Snake::checkSelfCollision() {
-    Position headPos = head->pos;
-    SnakeNode* current = head->next;
+bool Snake::checkSelfCollision() const {
+    const SnakeSegment& head = body.front();
+    auto it = body.begin();
+    ++it; // Skip head
     
-    while (current) {
-        if (current->pos == headPos) {
+    for (; it != body.end(); ++it) {
+        if (head.x == it->x && head.y == it->y) {
             return true;
         }
-        current = current->next;
     }
     return false;
 }
 
-Position Snake::getHeadPosition() {
-    return head->pos;
+bool Snake::checkCollision(int x, int y) const {
+    for (const auto& segment : body) {
+        if (segment.x == x && segment.y == y) {
+            return true;
+        }
+    }
+    return false;
 }
 
-std::vector<Position> Snake::getBodyPositions() {
-    std::vector<Position> positions;
-    SnakeNode* current = head;
+void Snake::render(sf::RenderWindow& window, int cellSize) const {
+    sf::RectangleShape segment(sf::Vector2f(cellSize - 2, cellSize - 2));
     
-    while (current) {
-        positions.push_back(current->pos);
-        current = current->next;
+    bool isHead = true;
+    for (const auto& bodySegment : body) {
+        segment.setPosition(bodySegment.x * cellSize + 1, bodySegment.y * cellSize + 1);
+        
+        if (isHead) {
+            segment.setFillColor(sf::Color::Green);
+            isHead = false;
+        } else {
+            segment.setFillColor(sf::Color(100, 255, 100));
+        }
+        
+        window.draw(segment);
     }
-    return positions;
+}
+
+SnakeSegment Snake::getHead() const {
+    return body.front();
+}
+
+int Snake::getLength() const {
+    return body.size();
+}
+
+void Snake::reset(int startX, int startY) {
+    body.clear();
+    body.push_back(SnakeSegment(startX, startY));
+    body.push_back(SnakeSegment(startX - 1, startY));
+    body.push_back(SnakeSegment(startX - 2, startY));
+    direction = RIGHT;
+    nextDirection = RIGHT;
+    growing = false;
 }

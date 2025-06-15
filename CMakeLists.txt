@@ -3,38 +3,21 @@ project(SnakeGame)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# Set SFML paths
-set(SFML_INCLUDE_DIR "C:/SFML-3.0.0/include")
-set(SFML_LIBRARY_DIR "C:/SFML-3.0.0/lib")
+# Find SFML
+find_package(sfml REQUIRED COMPONENTS system window graphics audio)
 
-# Include SFML headers
-include_directories(${SFML_INCLUDE_DIR})
-link_directories(${SFML_LIBRARY_DIR})
-
-# Add your source files here
-add_executable(SnakeGame 
-    main.cpp
-    Game.cpp
+# Add executable
+add_executable(SnakeGame
+    src/main.cpp
+    src/Game.cpp
+    src/Snake.cpp
+    src/Food.cpp
+    src/ScoreManager.cpp
+    src/Graph.cpp
 )
 
-# Link SFML libraries directly
-target_link_libraries(SnakeGame 
-    sfml-graphics
-    sfml-window
-    sfml-audio
-    sfml-network
-    sfml-system
-)
+# Link SFML
+target_link_libraries(SnakeGame sfml-system sfml-window sfml-graphics sfml-audio)
 
-# Copy SFML DLLs to output directory (Windows only)
-if(WIN32)
-    add_custom_command(TARGET SnakeGame POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "C:/SFML-3.0.0/bin"
-        $<TARGET_FILE_DIR:SnakeGame>)
-endif()
-
-# Set the output directory
-set_target_properties(SnakeGame PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-)
+# Include directories
+target_include_directories(SnakeGame PRIVATE src)

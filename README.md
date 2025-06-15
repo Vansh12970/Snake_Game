@@ -1,50 +1,38 @@
-# Advanced Snake Game in C++
+# Snake Game with Data Structures
 
-A feature-rich Snake game implementation using advanced data structures and algorithms.
+A modern Snake game implementation in C++ using SFML, featuring various data structures and algorithms.
 
 ## Features
 
-- **Linked List**: Snake body management
-- **Arrays**: Game board representation
-- **Graph Theory**: Wall system and pathfinding
-- **Stack**: Score history tracking
-- **Queue**: Recent scores management
-- **Dynamic Programming**: Food spawning algorithm
+### Data Structures Used:
+- **Linked List**: Snake body representation for efficient insertion/deletion
+- **Stack**: Score history for undo functionality
+- **Queue**: Recent scores tracking
+- **Graph**: Wall layout and movement validation
+- **Array/Vector**: Food positions and high scores storage
 
-## Data Structures Used
+### Game Features:
+- Dynamic food spawning (multiple food items)
+- Progressive wall levels using graph-based movement validation
+- Score history with undo functionality
+- High scores persistence
+- Pause/Resume functionality
+- Modern GUI with SFML
 
-1. **Linked List** - Snake body segments
-2. **2D Arrays** - Game board and wall system
-3. **Graph** - Movement validation and pathfinding
-4. **Stack** - Score history (LIFO)
-5. **Queue** - Recent scores (FIFO)
-6. **Vector** - Dynamic food management
+## Prerequisites
 
-## Compilation
+- C++17 compatible compiler
+- SFML 2.5+ library
+- CMake 3.16+
 
-### Windows (MinGW)
+## Installation
+
+### Windows (Visual Studio)
+1. Install vcpkg
+2. Install SFML: `vcpkg install sfml`
+3. Build with CMake or Visual Studio
+
+### Linux (Ubuntu/Debian)
 ```bash
-g++ -std=c++11 -Wall -Wextra -O2 src/*.cpp -o SnakeGame
-RUNNING THE GAME
-./SnakeGame
-Controls
-
-W/A/S/D: Movement
-P: Pause/Resume
-Q: Quit
-H: Help
-
-Game Mechanics
-
-Eat food (*) to grow and score points
-Avoid walls (#) and your own body
-Game speed increases with each level
-Multiple food items spawn dynamically
-Wall complexity increases with progression
-
-Score System
-
-10 points per food item
-Level up every 100 points
-Scores saved to file automatically
-View high scores, recent scores, and complete history
+sudo apt-get update
+sudo apt-get install libsfml-dev cmake build-essential

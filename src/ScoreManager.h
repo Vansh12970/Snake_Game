@@ -4,36 +4,38 @@
 #include <stack>
 #include <queue>
 #include <vector>
-#include <string>
 
 struct ScoreEntry {
     int score;
     int level;
     std::string timestamp;
     
-    // Add default constructor
-    ScoreEntry() : score(0), level(0), timestamp("") {}
-    
-    // Your existing constructor
     ScoreEntry(int s, int l, const std::string& t) : score(s), level(l), timestamp(t) {}
 };
 
 class ScoreManager {
 private:
-    std::stack<ScoreEntry> scoreHistory;
-    std::queue<ScoreEntry> recentScores;
-    std::vector<ScoreEntry> highScores;
-    int maxRecentScores;
+    std::stack<ScoreEntry> scoreHistory;    // For undo functionality
+    std::queue<int> recentScores;          // For recent scores tracking
+    std::vector<ScoreEntry> highScores;    // For persistent high scores
+    int currentScore;
+    int currentLevel;
+    static const int MAX_HIGH_SCORES = 10;
+    static const int MAX_RECENT_SCORES = 5;
 
 public:
-    ScoreManager(int maxRecent = 10);
-    void addScore(int score, int level);
-    void displayScoreHistory();
-    void displayRecentScores();
-    void displayHighScores();
-    std::string getCurrentTimestamp();
-    void saveScoresToFile(const std::string& filename);
-    void loadScoresFromFile(const std::string& filename);
+    ScoreManager();
+    void addScore(int points);
+    void setLevel(int level);
+    void gameOver();
+    void reset();
+    int getCurrentScore() const { return currentScore; }
+    int getCurrentLevel() const { return currentLevel; }
+    std::vector<ScoreEntry> getHighScores() const { return highScores; }
+    std::vector<int> getRecentScores() const;
+    bool canUndo() const;
+    void undoLastScore();
+    std::string getCurrentTimestamp() const;
 };
 
 #endif

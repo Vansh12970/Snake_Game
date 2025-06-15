@@ -1,23 +1,27 @@
 #ifndef GRAPH_H
 #define GRAPH_H
 
-#include "Snake.h"
 #include <vector>
-#include <queue>
+#include <unordered_map>
+#include <unordered_set>
 
 class Graph {
 private:
     int width, height;
-    std::vector<std::vector<int>> walls;
+    std::unordered_map<int, std::unordered_set<int>> adjacencyList;
     
+    int getIndex(int x, int y) const;
+    std::pair<int, int> getCoordinates(int index) const;
+
 public:
     Graph(int w, int h);
-    void generateWalls(int level);
-    bool isValidMove(Position pos);
-    bool isWall(Position pos);
-    std::vector<std::vector<int>> getWalls() const { return walls; }
-    std::vector<Position> findPath(Position start, Position end, const std::vector<Position>& obstacles);
+    void addWall(int x, int y);
+    void removeWall(int x, int y);
+    bool isValidMove(int fromX, int fromY, int toX, int toY) const;
+    bool isWall(int x, int y) const;
+    std::vector<std::pair<int, int>> getValidNeighbors(int x, int y) const;
     void clearWalls();
+    void generateWallLevel(int level);
 };
 
 #endif

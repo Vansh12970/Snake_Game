@@ -1,23 +1,26 @@
 #ifndef FOOD_H
 #define FOOD_H
 
-#include "Snake.h"
+#include <SFML/Graphics.hpp>
 #include <vector>
 #include <random>
 
 class Food {
 private:
-    std::vector<Position> foodPositions;
+    std::vector<sf::Vector2i> foodPositions;
     std::mt19937 rng;
-    int boardWidth, boardHeight;
+    int maxFood;
 
 public:
-    Food(int width, int height);
-    void spawnFood(const std::vector<Position>& snakeBody, const std::vector<std::vector<int>>& walls);
-    bool checkCollision(Position pos);
-    void removeFood(Position pos);
-    std::vector<Position> getFoodPositions() const { return foodPositions; }
-    void clearFood() { foodPositions.clear(); }
+    Food(int maxFoodCount = 3);
+    void spawn(int x, int y);
+    void spawnRandom(int gridWidth, int gridHeight, 
+                    const std::vector<sf::Vector2i>& occupiedPositions);
+    bool checkCollision(int x, int y);
+    void render(sf::RenderWindow& window, int cellSize) const;
+    void clear();
+    int getCount() const { return foodPositions.size(); }
+    std::vector<sf::Vector2i> getPositions() const { return foodPositions; }
 };
 
 #endif

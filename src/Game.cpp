@@ -1,551 +1,95 @@
 #include "Game.h"
 #include <iostream>
-#include <cmath>
+#include <sstream>
 
-Game::Game(int width, int height) : boardWidth(width), boardHeight(height),
-                                   score(0), level(1), gameOver(false), gameState(MENU), gameSpeed(200) {
-    // Create window
-    window = new sf::RenderWindow(sf::VideoMode(
-        boardWidth * CELL_SIZE + BOARD_OFFSET_X * 2 + 300, 
-        boardHeight * CELL_SIZE + BOARD_OFFSET_Y * 2
-    ), "Snake Game - Modern Edition", sf::Style::Titlebar | sf::Style::Close);
-    window->setFramerateLimit(60);
+Game::Game() : 
+    window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Snake Game with Data Structures"),
+    snake(3, GRID_HEIGHT / 2),
+    food(3),
+    gameGraph(GRID_WIDTH, GRID_HEIGHT),
+    state(MENU),
+    gameSpeed(0.15f),
+    gameRunning(false) {
     
-    // Initialize game objects
-    snake = new Snake(Position(5, 5));
-    food = new Food(width, height);
-    graph = new Graph(width, height);
-    scoreManager = new ScoreManager();
-    
-    // Setup graphics
-    setupColors();
-    loadAssets();
-    
-    scoreManager->loadScoresFromFile("scores.txt");
-}
-
-Game::~Game() {
-    delete snake;
-    delete food;
-    delete graph;
-    delete scoreManager;
-    delete window;
-}
-
-void Game::setupColors() {
-    backgroundColor = sf::Color(20, 25, 40);
-    wallColor = sf::Color(100, 120, 150);
-    snakeHeadColor = sf::Color(50, 255, 50);
-    snakeBodyColor = sf::Color(30, 200, 30);
-    foodColor = sf::Color(255, 100, 100);
-    textColor = sf::Color(220, 220, 220);
-}
-
-void Game::loadAssets() {
-    // Load default font (you can replace with custom font files)
-    if (!font.loadFromFile("arial.ttf")) {
-        // Use default system font if custom font not found
-        if (!font.loadFromFile("C:/Windows/Fonts/arial.ttf")) {
-            // Fallback - SFML will use default font
-            std::cout << "Warning: Could not load custom font, using default.\n";
-        }
+    if (!loadFont()) {
+        std::cout << "Warning: Could not load font. Using default font." << std::endl;
     }
     
-    titleFont = font; // Use same font for now
-    
-    // Create gradient background texture
-    sf::Image bgImage;
-    bgImage.create(window->getSize().x, window->getSize().y);
-    for (unsigned int y = 0; y < window->getSize().y; y++) {
-        float ratio = (float)y / window->getSize().y;
-        sf::Uint8 r = 20 + (30 * ratio);
-        sf::Uint8 g = 25 + (40 * ratio);
-        sf::Uint8 b = 40 + (60 * ratio);
-        for (unsigned int x = 0; x < window->getSize().x; x++) {
-            bgImage.setPixel(x, y, sf::Color(r, g, b));
-        }
-    }
-    backgroundTexture.loadFromImage(bgImage);
-    backgroundSprite.setTexture(backgroundTexture);
+    window.setFramerateLimit(60);
 }
 
-void Game::initialize() {
-    graph->generateWalls(level);
-    food->spawnFood(snake->getBodyPositions(), graph->getWalls());
-    lastUpdate = std::chrono::steady_clock::now();
-    gameState = MENU;
+bool Game::loadFont() {
+    // Try to load a system font
+    return font.loadFromFile("C:/Windows/Fonts/arial.ttf") ||  // Windows
+           font.loadFromFile("/System/Library/Fonts/Arial.ttf") ||  // macOS
+           font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"); // Linux
 }
 
 void Game::run() {
-    initialize();
-    
-    while (window->isOpen()) {
-        handleInput();
+    while (window.isOpen()) {
+        handleEvents();
         
-        if (gameState == PLAYING) {
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate);
-            
-            if (elapsed.count() >= gameSpeed) {
-                update();
-                lastUpdate = now;
-            }
+        if (state == PLAYING && gameClock.getElapsedTime().asSeconds() > gameSpeed) {
+            update();
+            gameClock.restart();
         }
         
         render();
     }
 }
 
-void Game::update() {
-    if (gameState != PLAYING) return;
-    
-    snake->move();
-    checkCollisions();
-    food->spawnFood(snake->getBodyPositions(), graph->getWalls());
-}
-
-void Game::render() {
-    window->clear(backgroundColor);
-    window->draw(backgroundSprite);
-    
-    switch (gameState) {
-        case MENU:
-            renderMenu();
-            break;
-        case PLAYING:
-            renderGame();
-            break;
-        case PAUSED:
-            renderGame();
-            renderPauseMenu();
-            break;
-        case GAME_OVER:
-            renderGame();
-            renderGameOver();
-            break;
-        case INSTRUCTIONS:
-            renderInstructions();
-            break;
-    }
-    
-    window->display();
-}
-
-void Game::renderMenu() {
-    // Title
-    sf::Text title("SNAKE GAME", titleFont, 60);
-    title.setFillColor(sf::Color(100, 255, 100));
-    title.setStyle(sf::Text::Bold);
-    sf::FloatRect titleBounds = title.getLocalBounds();
-    title.setPosition((window->getSize().x - titleBounds.width) / 2, 100);
-    window->draw(title);
-    
-    // Subtitle
-    sf::Text subtitle("Modern Edition", font, 24);
-    subtitle.setFillColor(sf::Color(150, 200, 255));
-    sf::FloatRect subtitleBounds = subtitle.getLocalBounds();
-    subtitle.setPosition((window->getSize().x - subtitleBounds.width) / 2, 180);
-    window->draw(subtitle);
-    
-    // Menu options
-    std::vector<std::string> options = {
-        "PRESS SPACE TO START",
-        "I - Instructions",
-        "H - High Scores",
-        "ESC - Exit"
-    };
-    
-    for (size_t i = 0; i < options.size(); i++) {
-        sf::Text option(options[i], font, 20);
-        option.setFillColor(i == 0 ? sf::Color(255, 255, 100) : textColor);
-        sf::FloatRect optionBounds = option.getLocalBounds();
-        option.setPosition((window->getSize().x - optionBounds.width) / 2, 280 + i * 40);
-        window->draw(option);
-    }
-    
-    // Animated elements
-    static float time = 0;
-    time += 0.1f;
-    
-    // Pulsing start text
-    sf::Text startText("PRESS SPACE TO START", font, 24);
-    float alpha = 128 + 127 * sin(time);
-    startText.setFillColor(sf::Color(255, 255, 100, (sf::Uint8)alpha));
-    sf::FloatRect startBounds = startText.getLocalBounds();
-    startText.setPosition((window->getSize().x - startBounds.width) / 2, 450);
-    window->draw(startText);
-}
-
-void Game::renderGame() {
-    // Draw board background
-    sf::RectangleShape boardBg(sf::Vector2f(boardWidth * CELL_SIZE, boardHeight * CELL_SIZE));
-    boardBg.setPosition(BOARD_OFFSET_X, BOARD_OFFSET_Y);
-    boardBg.setFillColor(sf::Color(30, 35, 50, 150));
-    boardBg.setOutlineThickness(2);
-    boardBg.setOutlineColor(sf::Color(100, 120, 150));
-    window->draw(boardBg);
-    
-    // Draw walls with glow effect
-    auto walls = graph->getWalls();
-    for (int y = 0; y < boardHeight; y++) {
-        for (int x = 0; x < boardWidth; x++) {
-            if (walls[y][x] == 1) {
-                sf::Vector2f pos = getCellPosition(x, y);
-                
-                // Glow effect
-                drawGlowEffect(pos, wallColor);
-                
-                // Wall block
-                sf::RectangleShape wall(sf::Vector2f(CELL_SIZE - 2, CELL_SIZE - 2));
-                wall.setPosition(pos.x + 1, pos.y + 1);
-                wall.setFillColor(wallColor);
-                window->draw(wall);
-            }
-        }
-    }
-    
-    // Draw food with glow effect
-    auto foodPositions = food->getFoodPositions();
-    for (const auto& foodPos : foodPositions) {
-        sf::Vector2f pos = getCellPosition(foodPos.x, foodPos.y);
-        
-        // Glow effect
-        drawGlowEffect(pos, foodColor);
-        
-        // Food circle
-        sf::CircleShape foodShape(CELL_SIZE / 2 - 3);
-        foodShape.setPosition(pos.x + 3, pos.y + 3);
-        foodShape.setFillColor(foodColor);
-        window->draw(foodShape);
-        
-        // Inner highlight
-        sf::CircleShape highlight(CELL_SIZE / 4);
-        highlight.setPosition(pos.x + CELL_SIZE/4, pos.y + CELL_SIZE/4);
-        highlight.setFillColor(sf::Color(255, 200, 200, 100));
-        window->draw(highlight);
-    }
-    
-    // Draw snake with glow effect
-    auto snakeBody = snake->getBodyPositions();
-    for (size_t i = 0; i < snakeBody.size(); i++) {
-        sf::Vector2f pos = getCellPosition(snakeBody[i].x, snakeBody[i].y);
-        
-        if (i == 0) { // Head
-            drawGlowEffect(pos, snakeHeadColor);
-            
-            sf::CircleShape head(CELL_SIZE / 2 - 2);
-            head.setPosition(pos.x + 2, pos.y + 2);
-            head.setFillColor(snakeHeadColor);
-            window->draw(head);
-            
-            // Eyes
-            sf::CircleShape eye1(2);
-            sf::CircleShape eye2(2);
-            eye1.setFillColor(sf::Color::Black);
-            eye2.setFillColor(sf::Color::Black);
-            eye1.setPosition(pos.x + 8, pos.y + 8);
-            eye2.setPosition(pos.x + 15, pos.y + 8);
-            window->draw(eye1);
-            window->draw(eye2);
-        } else { // Body
-            sf::RectangleShape body(sf::Vector2f(CELL_SIZE - 4, CELL_SIZE - 4));
-            body.setPosition(pos.x + 2, pos.y + 2);
-            body.setFillColor(snakeBodyColor);
-            window->draw(body);
-        }
-    }
-    
-    renderUI();
-}
-
-void Game::renderUI() {
-    // Score panel
-    sf::RectangleShape panel(sf::Vector2f(280, 200));
-    panel.setPosition(boardWidth * CELL_SIZE + BOARD_OFFSET_X + 20, BOARD_OFFSET_Y);
-    panel.setFillColor(sf::Color(40, 45, 60, 200));
-    panel.setOutlineThickness(2);
-    panel.setOutlineColor(sf::Color(80, 90, 110));
-    window->draw(panel);
-    
-    // Score text
-    sf::Text scoreText("SCORE", font, 20);
-    scoreText.setFillColor(sf::Color(200, 200, 255));
-    scoreText.setStyle(sf::Text::Bold);
-    scoreText.setPosition(panel.getPosition().x + 20, panel.getPosition().y + 20);
-    window->draw(scoreText);
-    
-    sf::Text scoreValue(std::to_string(score), font, 36);
-    scoreValue.setFillColor(sf::Color(255, 255, 100));
-    scoreValue.setStyle(sf::Text::Bold);
-    scoreValue.setPosition(panel.getPosition().x + 20, panel.getPosition().y + 50);
-    window->draw(scoreValue);
-    
-    // Level text
-    sf::Text levelText("LEVEL " + std::to_string(level), font, 18);
-    levelText.setFillColor(textColor);
-    levelText.setPosition(panel.getPosition().x + 20, panel.getPosition().y + 100);
-    window->draw(levelText);
-    
-    // Length text
-    sf::Text lengthText("LENGTH " + std::to_string(snake->getLength()), font, 18);
-    lengthText.setFillColor(textColor);
-    lengthText.setPosition(panel.getPosition().x + 20, panel.getPosition().y + 130);
-    window->draw(lengthText);
-    
-    // Controls
-    sf::Text controlsTitle("CONTROLS", font, 16);
-    controlsTitle.setFillColor(sf::Color(200, 200, 255));
-    controlsTitle.setStyle(sf::Text::Bold);
-    controlsTitle.setPosition(panel.getPosition().x + 20, panel.getPosition().y + 220);
-    window->draw(controlsTitle);
-    
-    std::vector<std::string> controls = {
-        "WASD - Move",
-        "P - Pause",
-        "ESC - Menu"
-    };
-    
-    for (size_t i = 0; i < controls.size(); i++) {
-        sf::Text control(controls[i], font, 14);
-        control.setFillColor(sf::Color(180, 180, 180));
-        control.setPosition(panel.getPosition().x + 20, panel.getPosition().y + 250 + i * 20);
-        window->draw(control);
-    }
-}
-
-void Game::renderPauseMenu() {
-    // Overlay
-    sf::RectangleShape overlay(sf::Vector2f(window->getSize().x, window->getSize().y));
-    overlay.setFillColor(sf::Color(0, 0, 0, 150));
-    window->draw(overlay);
-    
-    // Pause panel
-    sf::RectangleShape panel(sf::Vector2f(400, 300));
-    panel.setPosition((window->getSize().x - 400) / 2, (window->getSize().y - 300) / 2);
-    panel.setFillColor(sf::Color(40, 45, 60, 240));
-    panel.setOutlineThickness(3);
-    panel.setOutlineColor(sf::Color(100, 120, 150));
-    window->draw(panel);
-    
-    // Pause title
-    sf::Text title("PAUSED", font, 40);
-    title.setFillColor(sf::Color(255, 255, 100));
-    title.setStyle(sf::Text::Bold);
-    sf::FloatRect titleBounds = title.getLocalBounds();
-    title.setPosition(panel.getPosition().x + (400 - titleBounds.width) / 2, panel.getPosition().y + 40);
-    window->draw(title);
-    
-    // Options
-    std::vector<std::string> options = {
-        "SPACE - Resume",
-        "R - Restart",
-        "ESC - Main Menu"
-    };
-    
-    for (size_t i = 0; i < options.size(); i++) {
-        sf::Text option(options[i], font, 20);
-        option.setFillColor(textColor);
-        sf::FloatRect optionBounds = option.getLocalBounds();
-        option.setPosition(panel.getPosition().x + (400 - optionBounds.width) / 2, 
-                          panel.getPosition().y + 120 + i * 40);
-        window->draw(option);
-    }
-}
-
-void Game::renderGameOver() {
-    // Overlay
-    sf::RectangleShape overlay(sf::Vector2f(window->getSize().x, window->getSize().y));
-    overlay.setFillColor(sf::Color(0, 0, 0, 150));
-    window->draw(overlay);
-    
-    // Game over panel
-    sf::RectangleShape panel(sf::Vector2f(500, 400));
-    panel.setPosition((window->getSize().x - 500) / 2, (window->getSize().y - 400) / 2);
-    panel.setFillColor(sf::Color(60, 30, 30, 240));
-    panel.setOutlineThickness(3);
-    panel.setOutlineColor(sf::Color(150, 80, 80));
-    window->draw(panel);
-    
-    // Game over title
-    sf::Text title("GAME OVER", font, 40);
-    title.setFillColor(sf::Color(255, 100, 100));
-    title.setStyle(sf::Text::Bold);
-    sf::FloatRect titleBounds = title.getLocalBounds();
-    title.setPosition(panel.getPosition().x + (500 - titleBounds.width) / 2, panel.getPosition().y + 40);
-    window->draw(title);
-    
-    // Final stats
-    sf::Text finalScore("Final Score: " + std::to_string(score), font, 24);
-    finalScore.setFillColor(sf::Color(255, 255, 100));
-    sf::FloatRect scoreBounds = finalScore.getLocalBounds();
-    finalScore.setPosition(panel.getPosition().x + (500 - scoreBounds.width) / 2, panel.getPosition().y + 120);
-    window->draw(finalScore);
-    
-    sf::Text finalLevel("Level Reached: " + std::to_string(level), font, 20);
-    finalLevel.setFillColor(textColor);
-    sf::FloatRect levelBounds = finalLevel.getLocalBounds();
-    finalLevel.setPosition(panel.getPosition().x + (500 - levelBounds.width) / 2, panel.getPosition().y + 160);
-    window->draw(finalLevel);
-    
-    sf::Text finalLength("Snake Length: " + std::to_string(snake->getLength()), font, 20);
-    finalLength.setFillColor(textColor);
-    sf::FloatRect lengthBounds = finalLength.getLocalBounds();
-    finalLength.setPosition(panel.getPosition().x + (500 - lengthBounds.width) / 2, panel.getPosition().y + 190);
-    window->draw(finalLength);
-    
-    // Options
-    std::vector<std::string> options = {
-        "SPACE - Play Again",
-        "H - High Scores",
-        "ESC - Main Menu"
-    };
-    
-    for (size_t i = 0; i < options.size(); i++) {
-        sf::Text option(options[i], font, 18);
-        option.setFillColor(textColor);
-        sf::FloatRect optionBounds = option.getLocalBounds();
-        option.setPosition(panel.getPosition().x + (500 - optionBounds.width) / 2, 
-                          panel.getPosition().y + 270 + i * 30);
-        window->draw(option);
-    }
-}
-
-void Game::renderInstructions() {
-    // Instructions panel
-    sf::RectangleShape panel(sf::Vector2f(600, 500));
-    panel.setPosition((window->getSize().x - 600) / 2, (window->getSize().y - 500) / 2);
-    panel.setFillColor(sf::Color(40, 45, 60, 240));
-    panel.setOutlineThickness(3);
-    panel.setOutlineColor(sf::Color(100, 120, 150));
-    window->draw(panel);
-    
-    // Title
-    sf::Text title("HOW TO PLAY", font, 30);
-    title.setFillColor(sf::Color(100, 255, 100));
-    title.setStyle(sf::Text::Bold);
-    sf::FloatRect titleBounds = title.getLocalBounds();
-    title.setPosition(panel.getPosition().x + (600 - titleBounds.width) / 2, panel.getPosition().y + 30);
-    window->draw(title);
-    
-    // Instructions text
-    std::vector<std::string> instructions = {
-        "• Use WASD keys to move the snake",
-        "• Eat food (*) to grow and increase score",
-        "• Avoid walls (#) and your own body",
-        "• Game speed increases with each level",
-        "• Multiple food items spawn simultaneously",
-        "",
-        "CONTROLS:",
-        "• W - Move Up    • S - Move Down",
-        "• A - Move Left  • D - Move Right",
-        "• P - Pause Game",
-        "• ESC - Return to Menu",
-        "",
-        "SCORING:",
-        "• Each food item = 10 points",
-        "• Level up every 100 points"
-    };
-    
-    for (size_t i = 0; i < instructions.size(); i++) {
-        sf::Text instruction(instructions[i], font, 16);
-        instruction.setFillColor(instructions[i].empty() ? sf::Color::Transparent : textColor);
-        if (instructions[i].find("CONTROLS:") != std::string::npos || 
-            instructions[i].find("SCORING:") != std::string::npos) {
-            instruction.setStyle(sf::Text::Bold);
-            instruction.setFillColor(sf::Color(200, 200, 255));
-        }
-        instruction.setPosition(panel.getPosition().x + 50, panel.getPosition().y + 80 + i * 25);
-        window->draw(instruction);
-    }
-    
-    // Back option
-    sf::Text back("Press ESC to return to menu", font, 18);
-    back.setFillColor(sf::Color(255, 255, 100));
-    sf::FloatRect backBounds = back.getLocalBounds();
-    back.setPosition(panel.getPosition().x + (600 - backBounds.width) / 2, panel.getPosition().y + 450);
-    window->draw(back);
-}
-
-void Game::handleInput() {
+void Game::handleEvents() {
     sf::Event event;
-    while (window->pollEvent(event)) {
+    while (window.pollEvent(event)) {
         if (event.type == sf::Event::Closed) {
-            window->close();
+            window.close();
         }
         
         if (event.type == sf::Event::KeyPressed) {
-            switch (gameState) {
+            switch (state) {
                 case MENU:
                     if (event.key.code == sf::Keyboard::Space) {
-                        gameState = PLAYING;
-                        // Reset game
-                        delete snake;
-                        snake = new Snake(Position(5, 5));
-                        score = 0;
-                        level = 1;
-                        gameSpeed = 200;
-                        food->clearFood();
-                        graph->generateWalls(level);
-                    } else if (event.key.code == sf::Keyboard::I) {
-                        gameState = INSTRUCTIONS;
+                        startNewGame();
+                    } else if (event.key.code == sf::Keyboard::H) {
+                        state = HIGH_SCORES;
                     } else if (event.key.code == sf::Keyboard::Escape) {
-                        window->close();
+                        window.close();
                     }
                     break;
                     
                 case PLAYING:
-                    if (event.key.code == sf::Keyboard::W) {
-                        snake->changeDirection(UP);
-                    } else if (event.key.code == sf::Keyboard::S) {
-                        snake->changeDirection(DOWN);
-                    } else if (event.key.code == sf::Keyboard::A) {
-                        snake->changeDirection(LEFT);
-                    } else if (event.key.code == sf::Keyboard::D) {
-                        snake->changeDirection(RIGHT);
+                    if (event.key.code == sf::Keyboard::Up) {
+                        snake.setDirection(UP);
+                    } else if (event.key.code == sf::Keyboard::Down) {
+                        snake.setDirection(DOWN);
+                    } else if (event.key.code == sf::Keyboard::Left) {
+                        snake.setDirection(LEFT);
+                    } else if (event.key.code == sf::Keyboard::Right) {
+                        snake.setDirection(RIGHT);
                     } else if (event.key.code == sf::Keyboard::P) {
-                        gameState = PAUSED;
-                    } else if (event.key.code == sf::Keyboard::Escape) {
-                        gameState = MENU;
+                        pauseGame();
+                    } else if (event.key.code == sf::Keyboard::U && scoreManager.canUndo()) {
+                        scoreManager.undoLastScore();
                     }
                     break;
                     
                 case PAUSED:
-                    if (event.key.code == sf::Keyboard::Space || event.key.code == sf::Keyboard::P) {
-                        gameState = PLAYING;
-                    } else if (event.key.code == sf::Keyboard::R) {
-                        // Restart game
-                        delete snake;
-                        snake = new Snake(Position(5, 5));
-                        score = 0;
-                        level = 1;
-                        gameSpeed = 200;
-                        food->clearFood();
-                        graph->generateWalls(level);
-                        gameState = PLAYING;
-                    } else if (event.key.code == sf::Keyboard::Escape) {
-                        gameState = MENU;
+                    if (event.key.code == sf::Keyboard::P) {
+                        resumeGame();
                     }
                     break;
                     
                 case GAME_OVER:
                     if (event.key.code == sf::Keyboard::Space) {
-                        // Play again
-                        delete snake;
-                        snake = new Snake(Position(5, 5));
-                        score = 0;
-                        level = 1;
-                        gameSpeed = 200;
-                        food->clearFood();
-                        graph->generateWalls(level);
-                        gameState = PLAYING;
-                    } else if (event.key.code == sf::Keyboard::Escape) {
-                        gameState = MENU;
+                        state = MENU;
+                    } else if (event.key.code == sf::Keyboard::R) {
+                        startNewGame();
                     }
                     break;
                     
-                case INSTRUCTIONS:
-                    if (event.key.code == sf::Keyboard::Escape) {
-                        gameState = MENU;
+                case HIGH_SCORES:
+                    if (event.key.code == sf::Keyboard::Escape || event.key.code == sf::Keyboard::Space) {
+                        state = MENU;
                     }
                     break;
             }
@@ -553,57 +97,265 @@ void Game::handleInput() {
     }
 }
 
-void Game::checkCollisions() {
-    Position headPos = snake->getHeadPosition();
+void Game::update() {
+    if (state != PLAYING) return;
     
-    // Wall collision
-    if (graph->isWall(headPos)) {
-        gameState = GAME_OVER;
-        scoreManager->addScore(score, level);
-        scoreManager->saveScoresToFile("scores.txt");
+    SnakeSegment head = snake.getHead();
+    SnakeSegment newHead = head;
+    
+    // Calculate new head position based on direction
+    switch (snake.getHead().x < head.x ? LEFT : 
+            snake.getHead().x > head.x ? RIGHT :
+            snake.getHead().y < head.y ? UP : DOWN) {
+        // This is simplified - the actual direction is handled in Snake class
+    }
+    
+    snake.move();
+    head = snake.getHead();
+    
+    // Check wall collision using graph
+    if (!gameGraph.isValidMove(head.x, head.y, head.x, head.y) || gameGraph.isWall(head.x, head.y)) {
+        scoreManager.gameOver();
+        state = GAME_OVER;
         return;
     }
     
-    // Self collision
-    if (snake->checkSelfCollision()) {
-        gameState = GAME_OVER;
-        scoreManager->addScore(score, level);
-        scoreManager->saveScoresToFile("scores.txt");
+    // Check boundary collision
+    if (head.x < 0 || head.x >= GRID_WIDTH || head.y < 0 || head.y >= GRID_HEIGHT) {
+        scoreManager.gameOver();
+        state = GAME_OVER;
         return;
     }
     
-    // Food collision
-    if (food->checkCollision(headPos)) {
-        snake->grow();
-        food->removeFood(headPos);
-        score += 10;
+    // Check self collision
+    if (snake.checkSelfCollision()) {
+        scoreManager.gameOver();
+        state = GAME_OVER;
+        return;
+    }
+    
+    // Check food collision
+    if (food.checkCollision(head.x, head.y)) {
+        snake.grow();
+        scoreManager.addScore(10);
         
-        // Level up every 100 points
-        if (score % 100 == 0) {
+        // Check for level up
+        if (scoreManager.getCurrentScore() % 100 == 0) {
             nextLevel();
         }
+        
+        // Spawn new food
+        std::vector<sf::Vector2i> occupiedPositions;
+        for (const auto& segment : snake.getBody()) {
+            occupiedPositions.push_back(sf::Vector2i(segment.x, segment.y));
+        }
+        food.spawnRandom(GRID_WIDTH, GRID_HEIGHT, occupiedPositions);
     }
+    
+    // Maintain food count
+    if (food.getCount() < 3) {
+        std::vector<sf::Vector2i> occupiedPositions;
+        for (const auto& segment : snake.getBody()) {
+            occupiedPositions.push_back(sf::Vector2i(segment.x, segment.y));
+        }
+        food.spawnRandom(GRID_WIDTH, GRID_HEIGHT, occupiedPositions);
+    }
+}
+
+void Game::render() {
+    window.clear(sf::Color::Black);
+    
+    switch (state) {
+        case MENU:
+            renderMenu();
+            break;
+        case PLAYING:
+        case PAUSED:
+            renderGame();
+            break;
+        case GAME_OVER:
+            renderGameOver();
+            break;
+        case HIGH_SCORES:
+            renderHighScores();
+            break;
+    }
+    
+    window.display();
+}
+
+void Game::renderMenu() {
+    renderText("SNAKE GAME", WINDOW_WIDTH / 2 - 150, 150, 48, sf::Color::Green);
+    renderText("Press SPACE to Start", WINDOW_WIDTH / 2 - 120, 250);
+    renderText("Press H for High Scores", WINDOW_WIDTH / 2 - 130, 300);
+    renderText("Press ESC to Exit", WINDOW_WIDTH / 2 - 100, 350);
+    renderText("Controls: Arrow Keys, P (Pause), U (Undo)", WINDOW_WIDTH / 2 - 200, 450, 18);
+}
+
+void Game::renderGame() {
+    // Render grid background
+    sf::RectangleShape gridLine(sf::Vector2f(1, GRID_HEIGHT * CELL_SIZE));
+    gridLine.setFillColor(sf::Color(50, 50, 50));
+    for (int x = 0; x <= GRID_WIDTH; x++) {
+        gridLine.setPosition(x * CELL_SIZE, 0);
+        window.draw(gridLine);
+    }
+    
+    gridLine.setSize(sf::Vector2f(GRID_WIDTH * CELL_SIZE, 1));
+    for (int y = 0; y <= GRID_HEIGHT; y++) {
+        gridLine.setPosition(0, y * CELL_SIZE);
+        window.draw(gridLine);
+    }
+    
+    // Render walls
+    sf::RectangleShape wall(sf::Vector2f(CELL_SIZE, CELL_SIZE));
+    wall.setFillColor(sf::Color(100, 100, 100));
+    for (int x = 0; x < GRID_WIDTH; x++) {
+        for (int y = 0; y < GRID_HEIGHT; y++) {
+            if (gameGraph.isWall(x, y)) {
+                wall.setPosition(x * CELL_SIZE, y * CELL_SIZE);
+                window.draw(wall);
+            }
+        }
+    }
+    
+    // Render game objects
+    snake.render(window, CELL_SIZE);
+    food.render(window, CELL_SIZE);
+    
+    // Render UI
+    renderUI();
+    
+    if (state == PAUSED) {
+        renderText("PAUSED", WINDOW_WIDTH / 2 - 80, WINDOW_HEIGHT / 2 - 50, 36, sf::Color::Yellow);
+        renderText("Press P to Resume", WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2);
+    }
+}
+
+void Game::renderGameOver() {
+    renderText("GAME OVER", WINDOW_WIDTH / 2 - 120, 200, 36, sf::Color::Red);
+    
+    std::stringstream ss;
+    ss << "Final Score: " << scoreManager.getCurrentScore();
+    renderText(ss.str(), WINDOW_WIDTH / 2 - 100, 270);
+    
+    ss.str("");
+    ss << "Level Reached: " << scoreManager.getCurrentLevel();
+    renderText(ss.str(), WINDOW_WIDTH / 2 - 100, 320);
+    
+    renderText("Press SPACE for Menu", WINDOW_WIDTH / 2 - 120, 370);
+    renderText("Press R to Restart", WINDOW_WIDTH / 2 - 100, 420);
+}
+
+void Game::renderHighScores() {
+    renderText("HIGH SCORES", WINDOW_WIDTH / 2 - 120, 100, 36, sf::Color::Yellow);
+    
+    auto highScores = scoreManager.getHighScores();
+    for (size_t i = 0; i < highScores.size() && i < 10; i++) {
+        std::stringstream ss;
+        ss << (i + 1) << ". Score: " << highScores[i].score 
+           << " Level: " << highScores[i].level;
+        renderText(ss.str(), 50, 150 + i * 30, 20);
+    }
+    
+    if (highScores.empty()) {
+        renderText("No high scores yet!", WINDOW_WIDTH / 2 - 100, 200);
+    }
+    
+    renderText("Press ESC to return to menu", WINDOW_WIDTH / 2 - 150, WINDOW_HEIGHT - 50);
+}
+
+void Game::renderUI() {
+    int uiX = GRID_WIDTH * CELL_SIZE + 10;
+    
+    // Current score
+    std::stringstream ss;
+    ss << "Score: " << scoreManager.getCurrentScore();
+    renderText(ss.str(), uiX, 20, 20, sf::Color::White);
+    
+    // Current level
+    ss.str("");
+    ss << "Level: " << scoreManager.getCurrentLevel();
+    renderText(ss.str(), uiX, 50, 20, sf::Color::White);
+    
+    // Snake length
+    ss.str("");
+    ss << "Length: " << snake.getLength();
+    renderText(ss.str(), uiX, 80, 20, sf::Color::White);
+    
+    // Recent scores (using queue)
+    renderText("Recent Points:", uiX, 120, 16, sf::Color::Cyan);
+    auto recentScores = scoreManager.getRecentScores();
+    for (size_t i = 0; i < recentScores.size(); i++) {
+        ss.str("");
+        ss << "+" << recentScores[i];
+        renderText(ss.str(), uiX, 140 + i * 20, 14, sf::Color::Green);
+    }
+    
+    // Food count
+    ss.str("");
+    ss << "Food: " << food.getCount();
+    renderText(ss.str(), uiX, 280, 20, sf::Color::Red);
+    
+    // Controls
+    renderText("Controls:", uiX, 320, 16, sf::Color::Yellow);
+    renderText("Arrows: Move", uiX, 340, 12);
+    renderText("P: Pause", uiX, 355, 12);
+    renderText("U: Undo Score", uiX, 370, 12);
+}
+
+void Game::startNewGame() {
+    snake.reset(3, GRID_HEIGHT / 2);
+    food.clear();
+    scoreManager.reset();
+    gameGraph.generateWallLevel(1);
+    
+    // Spawn initial food
+    std::vector<sf::Vector2i> occupiedPositions;
+    for (const auto& segment : snake.getBody()) {
+        occupiedPositions.push_back(sf::Vector2i(segment.x, segment.y));
+    }
+    food.spawnRandom(GRID_WIDTH, GRID_HEIGHT, occupiedPositions);
+    
+    state = PLAYING;
+    gameRunning = true;
+    gameClock.restart();
+}
+
+void Game::pauseGame() {
+    state = PAUSED;
+}
+
+void Game::resumeGame() {
+    state = PLAYING;
+    gameClock.restart();
 }
 
 void Game::nextLevel() {
-    level++;
-    gameSpeed = std::max(50, gameSpeed - 20);
-    graph->generateWalls(level);
-    food->clearFood();
-}
-
-sf::Vector2f Game::getCellPosition(int x, int y) {
-    return sf::Vector2f(BOARD_OFFSET_X + x * CELL_SIZE, BOARD_OFFSET_Y + y * CELL_SIZE);
-}
-
-void Game::drawGlowEffect(sf::Vector2f position, sf::Color color) {
-    // Simple glow effect using multiple circles with decreasing alpha
-    for (int i = 3; i >= 1; i--) {
-        sf::CircleShape glow(CELL_SIZE / 2 + i * 2);
-        glow.setPosition(position.x - i * 2, position.y - i * 2);
-        sf::Color glowColor = color;
-        glowColor.a = 20 / i;
-        glow.setFillColor(glowColor);
-        window->draw(glow);
+    int newLevel = scoreManager.getCurrentLevel() + 1;
+    scoreManager.setLevel(newLevel);
+    
+    // Increase game speed
+    gameSpeed = std::max(0.05f, gameSpeed - 0.01f);
+    
+    // Generate new wall layout
+    gameGraph.generateWallLevel(newLevel);
+    
+    // Clear and respawn food
+    food.clear();
+    std::vector<sf::Vector2i> occupiedPositions;
+    for (const auto& segment : snake.getBody()) {
+        occupiedPositions.push_back(sf::Vector2i(segment.x, segment.y));
     }
+    food.spawnRandom(GRID_WIDTH, GRID_HEIGHT, occupiedPositions);
+}
+
+void Game::renderText(const std::string& text, float x, float y, int size, sf::Color color) {
+    sf::Text sfText;
+    sfText.setFont(font);
+    sfText.setString(text);
+    sfText.setCharacterSize(size);
+    sfText.setFillColor(color);
+    sfText.setPosition(x, y);
+    window.draw(sfText);
 }

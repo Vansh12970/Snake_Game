@@ -1,107 +1,136 @@
 #include "Graph.h"
 #include <random>
-#include <ctime>
 #include <algorithm>
 
 Graph::Graph(int w, int h) : width(w), height(h) {
-    walls.resize(height, std::vector<int>(width, 0));
-    
-    // Set border walls
-    for (int i = 0; i < width; i++) {
-        walls[0][i] = 1;
-        walls[height - 1][i] = 1;
-    }
-    for (int i = 0; i < height; i++) {
-        walls[i][0] = 1;
-        walls[i][width - 1] = 1;
+    // Initialize graph with all possible connections
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            int current = getIndex(x, y);
+            adjacencyList[current] = std::unordered_set<int>();
+            
+            // Add connections to adjacent cells
+            if (x > 0) adjacencyList[current].insert(getIndex(x-1, y));
+            if (x < width-1) adjacencyList[current].insert(getIndex(x+1, y));
+            if (y > 0) adjacencyList[current].insert(getIndex(x, y-1));
+            if (y < height-1) adjacencyList[current].insert(getIndex(x, y+1));
+        }
     }
 }
 
-void Graph::generateWalls(int level) {
-    clearWalls();
+int Graph::getIndex(int x, int y) const {
+    return y * width + x;
+}
+
+std::pair<int, int> Graph::getCoordinates(int index) const {
+    return {index % width, index / width};
+}
+
+void Graph::addWall(int x, int y) {
+    if (x < 0 || x >= width || y < 0 || y >= height) return;
     
-    std::mt19937 rng(static_cast<unsigned int>(std::time(nullptr)));
-    std::uniform_int_distribution<int> xDist(2, width - 3);
-    std::uniform_int_distribution<int> yDist(2, height - 3);
+    int wallIndex = getIndex(x, y);
     
-    int wallCount = std::min(level * 3, (width * height) / 8);
-    
-    for (int i = 0; i < wallCount; i++) {
-        int x = xDist(rng);
-        int y = yDist(rng);
-        
-        // Don't place walls too close to starting position
-        if (x < 5 && y < 5) continue;
-        
-        walls[y][x] = 1;
+    // Remove all connections to this wall
+    for (auto& pair : adjacencyList) {
+        pair.second.erase(wallIndex);
     }
+    
+    // Clear the wall's connections
+    adjacencyList[wallIndex].clear();
+}
+
+void Graph::removeWall(int x, int y) {
+    if (x < 0 || x >= width || y < 0 || y >= height) return;
+    
+    int current = getIndex(x, y);
+    adjacencyList[current].clear();
+    
+    // Restore connections
+    if (x > 0) {
+        int left = getIndex(x-1, y);
+        adjacencyList[current].insert(left);
+        adjacencyList[left].insert(current);
+    }
+    if (x < width-1) {
+        int right = getIndex(x+1, y);
+        adjacencyList[current].insert(right);
+        adjacencyList[right].insert(current);
+    }
+    if (y > 0) {
+        int up = getIndex(x, y-1);
+        adjacencyList[current].insert(up);
+        adjacencyList[up].insert(current);
+    }
+    if (y < height-1) {
+        int down = getIndex(x, y+1);
+        adjacencyList[current].insert(down);
+        adjacencyList[down].insert(current);
+    }
+}
+
+bool Graph::isValidMove(int fromX, int fromY, int toX, int toY) const {
+    if (toX < 0 || toX >= width || toY < 0 || toY >= height) return false;
+    
+    int fromIndex = getIndex(fromX, fromY);
+    int toIndex = getIndex(toX, toY);
+    
+    auto it = adjacencyList.find(fromIndex);
+    if (it != adjacencyList.end()) {
+        return it->second.count(toIndex) > 0;
+    }
+    return false;
+}
+
+bool Graph::isWall(int x, int y) const {
+    if (x < 0 || x >= width || y < 0 || y >= height) return true;
+    
+    int index = getIndex(x, y);
+    auto it = adjacencyList.find(index);
+    return it != adjacencyList.end() && it->second.empty();
+}
+
+std::vector<std::pair<int, int>> Graph::getValidNeighbors(int x, int y) const {
+    std::vector<std::pair<int, int>> neighbors;
+    int currentIndex = getIndex(x, y);
+    
+    auto it = adjacencyList.find(currentIndex);
+    if (it != adjacencyList.end()) {
+        for (int neighborIndex : it->second) {
+            neighbors.push_back(getCoordinates(neighborIndex));
+        }
+    }
+    
+    return neighbors;
 }
 
 void Graph::clearWalls() {
-    for (int i = 1; i < height - 1; i++) {
-        for (int j = 1; j < width - 1; j++) {
-            walls[i][j] = 0;
+    // Restore all connections
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            removeWall(x, y);
         }
     }
 }
 
-bool Graph::isValidMove(Position pos) {
-    return pos.x >= 0 && pos.x < width && 
-           pos.y >= 0 && pos.y < height && 
-           walls[pos.y][pos.x] == 0;
-}
-
-bool Graph::isWall(Position pos) {
-    if (pos.x < 0 || pos.x >= width || pos.y < 0 || pos.y >= height) {
-        return true;
-    }
-    return walls[pos.y][pos.x] == 1;
-}
-
-std::vector<Position> Graph::findPath(Position start, Position end, const std::vector<Position>& obstacles) {
-    std::vector<std::vector<bool>> visited(height, std::vector<bool>(width, false));
-    std::vector<std::vector<Position>> parent(height, std::vector<Position>(width, Position(-1, -1)));
-    std::queue<Position> q;
+void Graph::generateWallLevel(int level) {
+    clearWalls();
     
-    // Mark obstacles as visited
-    for (const auto& obstacle : obstacles) {
-        if (obstacle.x >= 0 && obstacle.x < width && obstacle.y >= 0 && obstacle.y < height) {
-            visited[obstacle.y][obstacle.x] = true;
-        }
-    }
+    std::random_device rd;
+    std::mt19937 gen(rd());
     
-    q.push(start);
-    visited[start.y][start.x] = true;
+    // Generate walls based on level
+    int wallCount = std::min(level * 3, (width * height) / 4);
     
-    int dx[] = {0, 0, 1, -1};
-    int dy[] = {1, -1, 0, 0};
-    
-    while (!q.empty()) {
-        Position current = q.front();
-        q.pop();
+    for (int i = 0; i < wallCount; i++) {
+        int x = gen() % width;
+        int y = gen() % height;
         
-        if (current == end) {
-            // Reconstruct path
-            std::vector<Position> path;
-            Position p = end;
-            while (!(p.x == -1 && p.y == -1)) {
-                path.push_back(p);
-                p = parent[p.y][p.x];
-            }
-            std::reverse(path.begin(), path.end());
-            return path;
+        // Don't place walls at starting position or too close to it
+        if ((x < 3 && y < 3) || (x == width/2 && y == height/2)) {
+            continue;
         }
         
-        for (int i = 0; i < 4; i++) {
-            Position next(current.x + dx[i], current.y + dy[i]);
-            
-            if (isValidMove(next) && !visited[next.y][next.x]) {
-                visited[next.y][next.x] = true;
-                parent[next.y][next.x] = current;
-                q.push(next);
-            }
-        }
+        addWall(x, y);
     }
-    
-    return std::vector<Position>(); // No path found
 }

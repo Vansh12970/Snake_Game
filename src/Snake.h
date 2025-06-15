@@ -1,43 +1,35 @@
 #ifndef SNAKE_H
 #define SNAKE_H
 
-#include <vector>
-
-struct Position {
-    int x, y;
-    Position(int x = 0, int y = 0) : x(x), y(y) {}
-    bool operator==(const Position& other) const {
-        return x == other.x && y == other.y;
-    }
-};
-
-struct SnakeNode {
-    Position pos;
-    SnakeNode* next;
-    SnakeNode(Position p) : pos(p), next(nullptr) {}
-};
+#include <SFML/Graphics.hpp>
+#include <list>
 
 enum Direction { UP, DOWN, LEFT, RIGHT };
 
+struct SnakeSegment {
+    int x, y;
+    SnakeSegment(int x = 0, int y = 0) : x(x), y(y) {}
+};
+
 class Snake {
 private:
-    SnakeNode* head;
-    SnakeNode* tail;
+    std::list<SnakeSegment> body;
     Direction direction;
-    int length;
+    Direction nextDirection;
+    bool growing;
 
 public:
-    Snake(Position startPos);
-    ~Snake();
-    
+    Snake(int startX, int startY);
     void move();
     void grow();
-    void changeDirection(Direction newDir);
-    bool checkSelfCollision();
-    Position getHeadPosition();
-    std::vector<Position> getBodyPositions();
-    int getLength() const { return length; }
-    Direction getDirection() const { return direction; }
+    void setDirection(Direction dir);
+    bool checkSelfCollision() const;
+    bool checkCollision(int x, int y) const;
+    void render(sf::RenderWindow& window, int cellSize) const;
+    SnakeSegment getHead() const;
+    int getLength() const;
+    void reset(int startX, int startY);
+    std::list<SnakeSegment> getBody() const { return body; }
 };
 
 #endif
