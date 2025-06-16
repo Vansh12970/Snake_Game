@@ -101,6 +101,14 @@ void Game::update() {
     if (state != PLAYING) return;
     
     SnakeSegment head = snake.getHead();
+    std::cout << "Head at: (" << head.x << ", " << head.y << ")\n";
+
+if (!gameGraph.isValidMove(head.x, head.y, head.x, head.y)) {
+    std::cout << "Invalid move at: (" << head.x << ", " << head.y << ")\n";
+}
+if (gameGraph.isWall(head.x, head.y)) {
+    std::cout << "Wall detected at head position!\n";
+}
     SnakeSegment newHead = head;
     
     // Calculate new head position based on direction
@@ -114,11 +122,12 @@ void Game::update() {
     head = snake.getHead();
     
     // Check wall collision using graph
-    if (!gameGraph.isValidMove(head.x, head.y, head.x, head.y) || gameGraph.isWall(head.x, head.y)) {
-        scoreManager.gameOver();
-        state = GAME_OVER;
-        return;
-    }
+   if (head.x < 0 || head.x >= GRID_WIDTH || head.y < 0 || head.y >= GRID_HEIGHT || gameGraph.isWall(head.x, head.y)) {
+    scoreManager.gameOver();
+    state = GAME_OVER;
+    return;
+}
+
     
     // Check boundary collision
     if (head.x < 0 || head.x >= GRID_WIDTH || head.y < 0 || head.y >= GRID_HEIGHT) {
@@ -305,12 +314,24 @@ void Game::renderUI() {
 }
 
 void Game::startNewGame() {
-    snake.reset(3, GRID_HEIGHT / 2);
-    food.clear();
     scoreManager.reset();
     gameGraph.generateWallLevel(1);
     
-    // Spawn initial food
+    int startX = 5;
+    int startY = 5;
+    while (gameGraph.isWall(startX, startY)) {
+        startX++;
+        if (startX >= GRID_WIDTH) {
+            startX = 0;
+            startY++;
+            if (startY >= GRID_HEIGHT) startY = 0;
+        }
+    }
+    snake.reset(startX, startY);
+    std::cout << "Starting at (" << startX << ", " << startY << ")" << std::endl;
+
+    food.clear();
+    
     std::vector<sf::Vector2i> occupiedPositions;
     for (const auto& segment : snake.getBody()) {
         occupiedPositions.push_back(sf::Vector2i(segment.x, segment.y));
@@ -321,6 +342,7 @@ void Game::startNewGame() {
     gameRunning = true;
     gameClock.restart();
 }
+
 
 void Game::pauseGame() {
     state = PAUSED;

@@ -4,12 +4,14 @@
 #include <stack>
 #include <queue>
 #include <vector>
+#include <string>
 
 struct ScoreEntry {
-    int score;
-    int level;
+    int score = 0;
+    int level = 0;
     std::string timestamp;
-    
+
+    ScoreEntry() = default;
     ScoreEntry(int s, int l, const std::string& t) : score(s), level(l), timestamp(t) {}
 };
 
