@@ -16,6 +16,7 @@ Game::Game() :
     }
     
     window.setFramerateLimit(60);
+    
 }
 
 bool Game::loadFont() {
@@ -23,6 +24,60 @@ bool Game::loadFont() {
     return font.loadFromFile("C:/Windows/Fonts/arial.ttf") ||  // Windows
            font.loadFromFile("/System/Library/Fonts/Arial.ttf") ||  // macOS
            font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"); // Linux
+}
+
+void Game::renderText(const std::string& text, float x, float y, int size, sf::Color color) {
+    sf::Text sfText;
+    sfText.setFont(font);
+    sfText.setString(text);
+    sfText.setCharacterSize(size);
+    sfText.setFillColor(color);
+    sfText.setOutlineColor(sf::Color::Black);
+    sfText.setOutlineThickness(2);
+    sfText.setStyle(sf::Text::Bold);
+    sfText.setPosition(x, y);
+    window.draw(sfText);
+}
+
+void Game::renderUI() {
+    int uiX = GRID_WIDTH * CELL_SIZE + 10;
+
+    sf::RectangleShape uiPanel;
+    uiPanel.setSize(sf::Vector2f(190, WINDOW_HEIGHT - 20));
+    uiPanel.setPosition(GRID_WIDTH * CELL_SIZE + 5, 10);
+    uiPanel.setFillColor(sf::Color(25, 25, 25, 230));
+    uiPanel.setOutlineColor(sf::Color::White);
+    uiPanel.setOutlineThickness(2);
+    window.draw(uiPanel);
+
+    std::stringstream ss;
+    ss << "Score: " << scoreManager.getCurrentScore();
+    renderText(ss.str(), uiX, 20, 22, sf::Color::White);
+
+    ss.str("");
+    ss << "Level: " << scoreManager.getCurrentLevel();
+    renderText(ss.str(), uiX, 50, 22, sf::Color::White);
+
+    ss.str("");
+    ss << "Length: " << snake.getLength();
+    renderText(ss.str(), uiX, 80, 22, sf::Color::White);
+
+    renderText("Recent Points:", uiX, 120, 18, sf::Color::Cyan);
+    auto recentScores = scoreManager.getRecentScores();
+    for (size_t i = 0; i < recentScores.size(); i++) {
+        ss.str("");
+        ss << "+" << recentScores[i];
+        renderText(ss.str(), uiX, 145 + i * 20, 16, sf::Color::Green);
+    }
+
+    ss.str("");
+    ss << "Food: " << food.getCount();
+    renderText(ss.str(), uiX, 260, 22, sf::Color::Red);
+
+    renderText("Controls:", uiX, 310, 18, sf::Color::Yellow);
+    renderText("WASD: Move", uiX, 335, 14);
+    renderText("P: Pause", uiX, 355, 14);
+    renderText("U: Undo Score", uiX, 375, 14);
 }
 
 void Game::run() {
@@ -58,13 +113,13 @@ void Game::handleEvents() {
                     break;
                     
                 case PLAYING:
-                    if (event.key.code == sf::Keyboard::Up) {
+                    if (event.key.code == sf::Keyboard::W) {
                         snake.setDirection(UP);
-                    } else if (event.key.code == sf::Keyboard::Down) {
+                    } else if (event.key.code == sf::Keyboard::S) {
                         snake.setDirection(DOWN);
-                    } else if (event.key.code == sf::Keyboard::Left) {
+                    } else if (event.key.code == sf::Keyboard::A) {
                         snake.setDirection(LEFT);
-                    } else if (event.key.code == sf::Keyboard::Right) {
+                    } else if (event.key.code == sf::Keyboard::D) {
                         snake.setDirection(RIGHT);
                     } else if (event.key.code == sf::Keyboard::P) {
                         pauseGame();
@@ -109,6 +164,7 @@ if (!gameGraph.isValidMove(head.x, head.y, head.x, head.y)) {
 if (gameGraph.isWall(head.x, head.y)) {
     std::cout << "Wall detected at head position!\n";
 }
+  
     SnakeSegment newHead = head;
     
     // Calculate new head position based on direction
@@ -202,6 +258,48 @@ void Game::renderMenu() {
 }
 
 void Game::renderGame() {
+    sf::RectangleShape bg;
+    bg.setSize(sf::Vector2f(GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE));
+    bg.setFillColor(sf::Color(10, 10, 10));
+    window.draw(bg);
+
+    sf::RectangleShape gridLine(sf::Vector2f(1, GRID_HEIGHT * CELL_SIZE));
+    gridLine.setFillColor(sf::Color(35, 35, 35));
+    for (int x = 0; x <= GRID_WIDTH; x++) {
+        gridLine.setPosition(x * CELL_SIZE, 0);
+        window.draw(gridLine);
+    }
+
+    gridLine.setSize(sf::Vector2f(GRID_WIDTH * CELL_SIZE, 1));
+    for (int y = 0; y <= GRID_HEIGHT; y++) {
+        gridLine.setPosition(0, y * CELL_SIZE);
+        window.draw(gridLine);
+    }
+
+    sf::RectangleShape wall(sf::Vector2f(CELL_SIZE, CELL_SIZE));
+    wall.setFillColor(sf::Color(80, 80, 80));
+    for (int x = 0; x < GRID_WIDTH; x++) {
+        for (int y = 0; y < GRID_HEIGHT; y++) {
+            if (gameGraph.isWall(x, y)) {
+                wall.setPosition(x * CELL_SIZE, y * CELL_SIZE);
+                window.draw(wall);
+            }
+        }
+    }
+
+    snake.render(window, CELL_SIZE);
+    food.render(window, CELL_SIZE);
+
+    renderUI();
+
+    if (state == PAUSED) {
+        renderText("PAUSED", WINDOW_WIDTH / 2 - 80, WINDOW_HEIGHT / 2 - 50, 36, sf::Color::Yellow);
+        renderText("Press P to Resume", WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2);
+    }
+}
+
+/*
+void Game::renderGame() {
     // Render grid background
     sf::RectangleShape gridLine(sf::Vector2f(1, GRID_HEIGHT * CELL_SIZE));
     gridLine.setFillColor(sf::Color(50, 50, 50));
@@ -239,7 +337,7 @@ void Game::renderGame() {
         renderText("PAUSED", WINDOW_WIDTH / 2 - 80, WINDOW_HEIGHT / 2 - 50, 36, sf::Color::Yellow);
         renderText("Press P to Resume", WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2);
     }
-}
+}*/
 
 void Game::renderGameOver() {
     renderText("GAME OVER", WINDOW_WIDTH / 2 - 120, 200, 36, sf::Color::Red);
@@ -273,7 +371,7 @@ void Game::renderHighScores() {
     
     renderText("Press ESC to return to menu", WINDOW_WIDTH / 2 - 150, WINDOW_HEIGHT - 50);
 }
-
+/*
 void Game::renderUI() {
     int uiX = GRID_WIDTH * CELL_SIZE + 10;
     
@@ -312,7 +410,7 @@ void Game::renderUI() {
     renderText("P: Pause", uiX, 355, 12);
     renderText("U: Undo Score", uiX, 370, 12);
 }
-
+*/
 void Game::startNewGame() {
     scoreManager.reset();
     gameGraph.generateWallLevel(1);
@@ -371,7 +469,7 @@ void Game::nextLevel() {
     }
     food.spawnRandom(GRID_WIDTH, GRID_HEIGHT, occupiedPositions);
 }
-
+/*S
 void Game::renderText(const std::string& text, float x, float y, int size, sf::Color color) {
     sf::Text sfText;
     sfText.setFont(font);
@@ -380,4 +478,4 @@ void Game::renderText(const std::string& text, float x, float y, int size, sf::C
     sfText.setFillColor(color);
     sfText.setPosition(x, y);
     window.draw(sfText);
-}
+}*/

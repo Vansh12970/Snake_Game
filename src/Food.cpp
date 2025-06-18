@@ -14,8 +14,8 @@ void Food::spawnRandom(int gridWidth, int gridHeight,
     while (foodPositions.size() < maxFood) {
         int x = rng() % gridWidth;
         int y = rng() % gridHeight;
-        
-        // Check if position is occupied
+
+        // Check is position not occupied
         bool occupied = false;
         for (const auto& pos : occupiedPositions) {
             if (pos.x == x && pos.y == y) {
@@ -24,7 +24,7 @@ void Food::spawnRandom(int gridWidth, int gridHeight,
             }
         }
         
-        // Check if food already exists at this position
+        // Check food exist
         for (const auto& food : foodPositions) {
             if (food.x == x && food.y == y) {
                 occupied = true;
