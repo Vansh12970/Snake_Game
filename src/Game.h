@@ -1,11 +1,13 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include "Snake.h"
 #include "Food.h"
 #include "ScoreManager.h"
 #include "Graph.h"
+
 
 enum GameState { MENU, PLAYING, GAME_OVER, PAUSED, HIGH_SCORES };
 
@@ -20,7 +22,10 @@ private:
     sf::Font font;
     sf::Clock gameClock;
     sf::Time lastUpdate;
-    
+    sf::Music bgMusic;
+    sf::SoundBuffer eatBuffer, collisionBuffer, levelBuffer;
+    sf::Sound eatSound, collisionSound, levelUpSound;
+
     static const int GRID_WIDTH = 30;
     static const int GRID_HEIGHT = 20;
     static const int CELL_SIZE = 25;
@@ -29,11 +34,12 @@ private:
     
     float gameSpeed;
     bool gameRunning;
+   
 
 public:
     Game();
     void run();
-    
+    void toggleAIMode(); 
 private:
     void handleEvents();
     void update();

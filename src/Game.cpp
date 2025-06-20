@@ -1,6 +1,7 @@
 #include "Game.h"
 #include <iostream>
 #include <sstream>
+#include <SFML/Audio.hpp>
 
 Game::Game() : 
     window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Snake Game with Data Structures"),
@@ -11,9 +12,64 @@ Game::Game() :
     gameSpeed(0.15f),
     gameRunning(false) {
     
+    // Background music
+if (!bgMusic.openFromFile("../assets/audio/background.ogg")) {
+    std::cerr << "Failed to load background music" << std::endl;
+} else {
+    bgMusic.setLoop(true);
+    bgMusic.setVolume(10); // Set volume to 10%
+    bgMusic.play();
+}
+
+// Sound effects
+if (!eatBuffer.loadFromFile("../assets/audio/eat.mp3")) {
+    std::cerr << "Failed to load eat sound" << std::endl;
+} else{
+    eatSound.setBuffer(eatBuffer);
+    eatSound.setVolume(100.0f); // Set volume to 100%
+}
+if (!collisionBuffer.loadFromFile("../assets/audio/hit.wav")) {
+    std::cerr << "Failed to load collision sound" << std::endl;
+} else {
+    collisionSound.setBuffer(collisionBuffer);
+    collisionSound.setVolume(100.0f); // Set volume to 100%
+}
+if (!levelBuffer.loadFromFile("../assets/audio/levelup.wav")) {
+    std::cerr << "Failed to load level up sound" << std::endl;
+} else {
+    levelUpSound.setBuffer(levelBuffer);
+    levelUpSound.setVolume(100.0f); // Set volume to 100%
+}
+
+// Set buffers to sound players
+eatSound.setBuffer(eatBuffer);
+collisionSound.setBuffer(collisionBuffer);
+levelUpSound.setBuffer(levelBuffer);
+
+     if (!food.loadTexture("../assets/images/apple.png")) {
+        std::cerr << "Failed to load apple texture!" << std::endl;
+    }    
     if (!loadFont()) {
         std::cout << "Warning: Could not load font. Using default font." << std::endl;
     }
+     if (!bgMusic.openFromFile("../assets/audio/background.ogg")) {
+        std::cout << "Failed to load background music" << std::endl;
+    } else {
+        bgMusic.setLoop(true);
+        bgMusic.play();
+    }
+
+    if (!eatBuffer.loadFromFile("../assets/audio/eat.wav"))
+        std::cout << "Failed to load eat sound" << std::endl;
+    if (!collisionBuffer.loadFromFile("../assets/audio/hit.wav"))
+        std::cout << "Failed to load collision sound" << std::endl;
+    if (!levelBuffer.loadFromFile("../assets/audio/levelup.wav"))
+        std::cout << "Failed to load level up sound" << std::endl;
+
+    eatSound.setBuffer(eatBuffer);
+    collisionSound.setBuffer(collisionBuffer);
+    levelUpSound.setBuffer(levelBuffer);
+
     
     window.setFramerateLimit(60);
     
@@ -22,8 +78,8 @@ Game::Game() :
 bool Game::loadFont() {
     // Try to load a system font
     return font.loadFromFile("C:/Windows/Fonts/arial.ttf") ||  // Windows
-           font.loadFromFile("/System/Library/Fonts/Arial.ttf") ||  // macOS
-           font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"); // Linux
+           font.loadFromFile("/System/Library/Fonts/Arial.ttf") ||  
+           font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"); 
 }
 
 void Game::renderText(const std::string& text, float x, float y, int size, sf::Color color) {
@@ -180,6 +236,7 @@ if (gameGraph.isWall(head.x, head.y)) {
     // Check wall collision using graph
    if (head.x < 0 || head.x >= GRID_WIDTH || head.y < 0 || head.y >= GRID_HEIGHT || gameGraph.isWall(head.x, head.y)) {
     scoreManager.gameOver();
+    collisionSound.play();
     state = GAME_OVER;
     return;
 }
@@ -188,12 +245,14 @@ if (gameGraph.isWall(head.x, head.y)) {
     // Check boundary collision
     if (head.x < 0 || head.x >= GRID_WIDTH || head.y < 0 || head.y >= GRID_HEIGHT) {
         scoreManager.gameOver();
+        collisionSound.play();
         state = GAME_OVER;
         return;
     }
     
     // Check self collision
     if (snake.checkSelfCollision()) {
+        collisionSound.play();
         scoreManager.gameOver();
         state = GAME_OVER;
         return;
@@ -201,11 +260,13 @@ if (gameGraph.isWall(head.x, head.y)) {
     
     // Check food collision
     if (food.checkCollision(head.x, head.y)) {
+        eatSound.play();
         snake.grow();
         scoreManager.addScore(10);
         
         // Check for level up
         if (scoreManager.getCurrentScore() % 100 == 0) {
+            levelUpSound.play();
             nextLevel();
         }
         
@@ -254,7 +315,7 @@ void Game::renderMenu() {
     renderText("Press SPACE to Start", WINDOW_WIDTH / 2 - 120, 250);
     renderText("Press H for High Scores", WINDOW_WIDTH / 2 - 130, 300);
     renderText("Press ESC to Exit", WINDOW_WIDTH / 2 - 100, 350);
-    renderText("Controls: Arrow Keys, P (Pause), U (Undo)", WINDOW_WIDTH / 2 - 200, 450, 18);
+    renderText("Controls: WASD keys, P (Pause), U (Undo)", WINDOW_WIDTH / 2 - 200, 450, 18);
 }
 
 void Game::renderGame() {
@@ -349,7 +410,6 @@ void Game::renderGameOver() {
     ss.str("");
     ss << "Level Reached: " << scoreManager.getCurrentLevel();
     renderText(ss.str(), WINDOW_WIDTH / 2 - 100, 320);
-    
     renderText("Press SPACE for Menu", WINDOW_WIDTH / 2 - 120, 370);
     renderText("Press R to Restart", WINDOW_WIDTH / 2 - 100, 420);
 }
@@ -429,6 +489,8 @@ void Game::startNewGame() {
     std::cout << "Starting at (" << startX << ", " << startY << ")" << std::endl;
 
     food.clear();
+    food.loadTexture("../assets/images/apple.png"); // Adjust path as needed
+
     
     std::vector<sf::Vector2i> occupiedPositions;
     for (const auto& segment : snake.getBody()) {
