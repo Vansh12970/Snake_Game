@@ -17,7 +17,7 @@ if (!bgMusic.openFromFile("../assets/audio/background.ogg")) {
     std::cerr << "Failed to load background music" << std::endl;
 } else {
     bgMusic.setLoop(true);
-    bgMusic.setVolume(10); // Set volume to 10%
+    bgMusic.setVolume(10); 
     bgMusic.play();
 }
 
@@ -26,19 +26,19 @@ if (!eatBuffer.loadFromFile("../assets/audio/eat.mp3")) {
     std::cerr << "Failed to load eat sound" << std::endl;
 } else{
     eatSound.setBuffer(eatBuffer);
-    eatSound.setVolume(100.0f); // Set volume to 100%
+    eatSound.setVolume(100.0f); 
 }
 if (!collisionBuffer.loadFromFile("../assets/audio/hit.wav")) {
     std::cerr << "Failed to load collision sound" << std::endl;
 } else {
     collisionSound.setBuffer(collisionBuffer);
-    collisionSound.setVolume(100.0f); // Set volume to 100%
+    collisionSound.setVolume(100.0f); 
 }
 if (!levelBuffer.loadFromFile("../assets/audio/levelup.wav")) {
     std::cerr << "Failed to load level up sound" << std::endl;
 } else {
     levelUpSound.setBuffer(levelBuffer);
-    levelUpSound.setVolume(100.0f); // Set volume to 100%
+    levelUpSound.setVolume(100.0f); 
 }
 
 // Set buffers to sound players
@@ -76,7 +76,7 @@ levelUpSound.setBuffer(levelBuffer);
 }
 
 bool Game::loadFont() {
-    // Try to load a system font
+    // font
     return font.loadFromFile("C:/Windows/Fonts/arial.ttf") ||  // Windows
            font.loadFromFile("/System/Library/Fonts/Arial.ttf") ||  
            font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"); 
@@ -227,7 +227,7 @@ if (gameGraph.isWall(head.x, head.y)) {
     switch (snake.getHead().x < head.x ? LEFT : 
             snake.getHead().x > head.x ? RIGHT :
             snake.getHead().y < head.y ? UP : DOWN) {
-        // This is simplified - the actual direction is handled in Snake class
+        //  the actual direction is handled in Snake class
     }
     
     snake.move();
@@ -315,7 +315,7 @@ void Game::renderMenu() {
     renderText("Press SPACE to Start", WINDOW_WIDTH / 2 - 120, 250);
     renderText("Press H for High Scores", WINDOW_WIDTH / 2 - 130, 300);
     renderText("Press ESC to Exit", WINDOW_WIDTH / 2 - 100, 350);
-    renderText("Controls: WASD keys, P (Pause), U (Undo)", WINDOW_WIDTH / 2 - 200, 450, 18);
+    renderText("Controls: WASD keys, P (Pause)", WINDOW_WIDTH / 2 - 200, 450, 18);
 }
 
 void Game::renderGame() {
@@ -489,7 +489,7 @@ void Game::startNewGame() {
     std::cout << "Starting at (" << startX << ", " << startY << ")" << std::endl;
 
     food.clear();
-    food.loadTexture("../assets/images/apple.png"); // Adjust path as needed
+    food.loadTexture("../assets/images/apple.png"); 
 
     
     std::vector<sf::Vector2i> occupiedPositions;
