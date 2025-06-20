@@ -315,7 +315,7 @@ void Game::renderMenu() {
     renderText("Press SPACE to Start", WINDOW_WIDTH / 2 - 120, 250);
     renderText("Press H for High Scores", WINDOW_WIDTH / 2 - 130, 300);
     renderText("Press ESC to Exit", WINDOW_WIDTH / 2 - 100, 350);
-    renderText("Controls: WASD keys, P (Pause)", WINDOW_WIDTH / 2 - 200, 450, 18);
+    renderText("Controls: WASD keys, P (Pause), U (Undo)", WINDOW_WIDTH / 2 - 200, 450, 18);
 }
 
 void Game::renderGame() {
