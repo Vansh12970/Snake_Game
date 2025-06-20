@@ -27,7 +27,7 @@ A modern Snake game implementation in C++ using SFML, featuring various data str
 
 ## Installation
 https://github.com/Vansh12970/Snake_Game/releases
-
+By clicking on link landed to release page Scroll down click on (Assets) and download Enjoy !
 ### Windows (Visual Studio)
 1. Install vcpkg
 2. Install SFML: `vcpkg install sfml`
