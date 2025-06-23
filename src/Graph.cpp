@@ -3,7 +3,7 @@
 #include <algorithm>
 
 Graph::Graph(int w, int h) : width(w), height(h) {
-    // Initialize graph with all possible connections
+    // Initialize graph 
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
             int current = getIndex(x, y);

@@ -3,7 +3,7 @@
 #include <ctime>
 #include <sstream>
 #include <iomanip>
-
+ 
 ScoreManager::ScoreManager() : currentScore(0), currentLevel(1) {}
 
 void ScoreManager::addScore(int points) {
